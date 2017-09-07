@@ -10,7 +10,10 @@ import (
 	"github.com/go-zoo/bone"
 )
 
-var PORT string = ":4555"
+const (
+	PORT string = ":4555"
+	TTL time.Duration = time.Duration(time.Hour * 5)
+)
 
 type resetRequest struct {
 	samaccountname string
@@ -18,7 +21,7 @@ type resetRequest struct {
 }
 
 func (r *resetRequest) expired() bool {
-	return time.Now().Sub(r.created) > time.Duration(time.Hour * 5)
+	return time.Now().Sub(r.created) > TTL
 }
 
 var resetRequestsMap = struct{
@@ -75,20 +78,44 @@ func resetForm(rw http.ResponseWriter, r *http.Request) {
 
 	resetRequestsMap.Lock()
 	defer resetRequestsMap.Unlock()
-	if _, ok := resetRequestsMap.m[token]; ok {
+	if val, ok := resetRequestsMap.m[token]; ok {
 		// return the form 
 	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
-	rw.Write([]byte(`<html>
+	rw.Write([]byte(fmt.Sprintf(`<html>
 	<head>
-	<title></title>
+	<title>Password Reset</title>
 	</head>
 	<body>
-	<form>
-		Password:<input type="text" name="password">
-		<input type="submit" value="Login">
+	<form class="pure-form" method="POST">
+    <fieldset>
+        <legend>Reset password for '%s'</legend>
+
+        <input type="password" placeholder="Password" id="password" required>
+        <input type="password" placeholder="Confirm Password" id="confirm_password" required>
+
+        <button type="submit" class="pure-button pure-button-primary">Confirm</button>
+		</br>
+		</br>
+		<small style="color:grey"> This form will expire on %s </small>
+    </fieldset>
 	</form>
+	<script>
+		var password = document.getElementById("password")
+		, confirm_password = document.getElementById("confirm_password");
+
+		function validatePassword(){
+		if(password.value != confirm_password.value) {
+			confirm_password.setCustomValidity("Passwords Don't Match");
+		} else {
+			confirm_password.setCustomValidity('');
+		}
+		}
+
+		password.onchange = validatePassword;
+		confirm_password.onkeyup = validatePassword;
+	</script>
 	</body>
-	</html>`))
+	</html>`, val.samaccountname, time.Now().Add(TTL).Format("2006-01-02T15:04:05 MST") )))
 	return
 
 
@@ -108,6 +135,13 @@ func resetPassword(rw http.ResponseWriter, r *http.Request) {
 		// reset the password by calling the api async
 		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 		rw.Write([]byte(`<html>
+		<head>
+		<title>Password Reset</title>
+		</head>
+		<body>
+		Password has been reset!
+		</body>
+		</html>
 		`))
 
 		delete(resetRequestsMap.m, token)
