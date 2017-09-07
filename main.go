@@ -16,7 +16,7 @@ const (
 )
 
 type resetRequest struct {
-	samaccountname string
+	accountname string
 	created time.Time 
 }
 
@@ -115,7 +115,7 @@ func resetForm(rw http.ResponseWriter, r *http.Request) {
 		confirm_password.onkeyup = validatePassword;
 	</script>
 	</body>
-	</html>`, val.samaccountname, time.Now().Add(TTL).Format("2006-01-02T15:04:05 MST") )))
+	</html>`, val.accountname, time.Now().Add(TTL).Format("2006-01-02T15:04:05 MST") )))
 	return
 
 
