@@ -15,6 +15,12 @@ const (
 	TTL  time.Duration = time.Duration(time.Hour * 5)
 )
 
+var API BackendApi
+
+type BackendApi interface {
+	ResetPassword(username string, password string) bool
+}
+
 type resetRequest struct {
 	accountname string
 	created     time.Time
@@ -31,6 +37,7 @@ var resetRequestsMap = struct {
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	API = PowershellBackend{}
 }
 
 func main() {
@@ -87,11 +94,11 @@ func resetForm(rw http.ResponseWriter, r *http.Request) {
 <title>Password Reset</title>
 </head>
 <body>
-<form class="pure-form" method="POST">
+<form class="pure-form" method="post">
 <fieldset>
 	<legend>Reset password for '%s'</legend>
 
-	<input type="password" placeholder="Password" id="password" required>
+	<input type="password" name="password" placeholder="Password" id="password" required>
 	<input type="password" placeholder="Confirm Password" id="confirm_password" required>
 
 	<button type="submit" class="pure-button pure-button-primary">Confirm</button>
@@ -126,15 +133,17 @@ func resetForm(rw http.ResponseWriter, r *http.Request) {
 }
 
 func resetPassword(rw http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	newpassword := r.FormValue("password")
 	token := bone.GetValue(r, "token")
-	//newpassword := r.FormValue("password")
 
 	resetRequestsMap.Lock()
 	defer resetRequestsMap.Unlock()
-	if _, ok := resetRequestsMap.m[token]; ok {
+	if val, ok := resetRequestsMap.m[token]; ok {
 		// reset the password by calling the api async
 		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
-		rw.Write([]byte(`
+		if API.ResetPassword(val.accountname, newpassword) {
+			rw.Write([]byte(`
 <html>
 <head>
 <title>Password Reset</title>
@@ -144,8 +153,22 @@ Password has been reset!
 </body>
 </html>
 		`))
+			delete(resetRequestsMap.m, token)
 
-		delete(resetRequestsMap.m, token)
+		} else {
+			rw.Write([]byte(`
+<html>
+<head>
+<title>Password Reset</title>
+</head>
+<body>
+An error has occured!
+</body>
+</html>
+		`))
+
+		}
+
 		return
 	}
 
