@@ -12,7 +12,7 @@ import (
 
 const (
 	PORT string        = ":4555"
-	TTL  time.Duration = time.Duration(time.Hour * 5)
+	TTL  time.Duration = time.Duration(time.Hour * 8)
 )
 
 var API BackendApi
@@ -123,7 +123,7 @@ func resetForm(rw http.ResponseWriter, r *http.Request) {
 	confirm_password.onkeyup = validatePassword;
 </script>
 </body>
-</html>`, val.accountname, time.Now().Add(TTL).Format("2006-01-02T15:04:05 MST"))))
+</html>`, val.accountname, val.created.Add(TTL).Format("2006-01-02T15:04:05 MST"))))
 		return
 
 	}
